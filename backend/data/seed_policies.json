@@ -1,0 +1,70 @@
+[
+  {
+    "id": "pmfby-localized-calamities-72-hour-intimation",
+    "title": "Localized Calamities & 72-Hour Intimation",
+    "publisher": "Ministry of Agriculture & Farmers Welfare, Govt. of India",
+    "version_note": "PMFBY Operational Guidelines",
+    "source_url": "https://pmfby.gov.in/",
+    "keywords": [
+      "localized calamity",
+      "hailstorm",
+      "landslide",
+      "inundation",
+      "cloudburst",
+      "natural fire",
+      "72 hours",
+      "intimation"
+    ],
+    "text": "Individual farm-level losses caused by hailstorm, landslide, inundation, cloudburst, and natural fire should be intimated within 72 hours of occurrence."
+  },
+  {
+    "id": "pmfby-post-harvest-losses-14-days",
+    "title": "Post-Harvest Losses - 14 Days",
+    "publisher": "Ministry of Agriculture & Farmers Welfare, Govt. of India",
+    "version_note": "PMFBY Operational Guidelines",
+    "source_url": "https://pmfby.gov.in/",
+    "keywords": [
+      "post-harvest",
+      "14 days",
+      "cut-and-spread",
+      "cyclonic rain",
+      "unseasonal rain"
+    ],
+    "text": "Coverage is available up to 14 days from harvesting for crops kept in cut-and-spread condition in the field against cyclonic rain or unseasonal rain."
+  },
+  {
+    "id": "pmfby-official-reporting-channels",
+    "title": "Official Reporting Channels",
+    "publisher": "Ministry of Agriculture & Farmers Welfare, Govt. of India",
+    "version_note": "PMFBY Operational Guidelines",
+    "source_url": "https://pmfby.gov.in/",
+    "keywords": [
+      "reporting",
+      "Krishi Rakshak Portal",
+      "14447",
+      "Crop Insurance Mobile App",
+      "geo-tagged photos",
+      "National Crop Insurance Portal",
+      "bank branch",
+      "CSC",
+      "Agriculture Department"
+    ],
+    "text": "Losses may be reported through the Krishi Rakshak Portal and National Helpline 14447; the Crop Insurance Mobile App (with geo-tagged photos); the National Crop Insurance Portal (pmfby.gov.in); the concerned Bank branch (for loanee farmers); or local CSC / Agriculture Department officials."
+  },
+  {
+    "id": "pmfby-delayed-intimation-caveat",
+    "title": "Delayed Intimation Caveat",
+    "publisher": "Ministry of Agriculture & Farmers Welfare, Govt. of India",
+    "version_note": "PMFBY Operational Guidelines",
+    "source_url": "https://pmfby.gov.in/",
+    "keywords": [
+      "delayed intimation",
+      "72-hour window",
+      "localized events",
+      "post-harvest events",
+      "competent authority",
+      "verification"
+    ],
+    "text": "The 72-hour window applies to eligible localized and post-harvest events. Delayed intimations are subject to verification by the competent authority and are not automatically rejected without review."
+  }
+]

@@ -1,0 +1,94 @@
+[
+  {
+    "id": "pib-anwar-hussain-assam",
+    "farmer_name": "Anwar Hussain",
+    "location_state": "Assam",
+    "publisher": "Press Information Bureau (PIB), Government of India",
+    "source_url": "https://pib.gov.in/",
+    "trust_label": "Government-published account",
+    "calamity_tags": [
+      "heavy_rain",
+      "flood_inundation"
+    ],
+    "crop_tags": [],
+    "scheme_tag": "PMFBY",
+    "known_facts": {
+      "event": "Crop damage due to heavy rainfall",
+      "scheme": "Pradhan Mantri Fasal Bima Yojana (PMFBY)",
+      "reported_premium": "Rs. 100",
+      "reported_outcome": "Reported compensation of Rs. 50,600 following crop-loss assessment"
+    },
+    "premium_paid_display": "Rs. 100",
+    "payout_received_display": "Rs. 50,600 (reported compensation)",
+    "pib_release_note": "The PIB-published account reports a Rs. 100 farmer premium and Rs. 50,600 compensation following crop-loss assessment.",
+    "video_reference_title": "Official DD Kisan / Ministry of Agriculture Claim Process & Farmer Stories",
+    "video_reference_url": "https://www.youtube.com/@DDKisan",
+    "unknown_facts": [
+      "Specific crop variety affected",
+      "Exact date of loss and intimation timestamp",
+      "Specific photographs or documents submitted"
+    ],
+    "takeaway": "Even a nominal farmer premium share under PMFBY can cover substantial assessed losses when formally reported and assessed."
+  },
+  {
+    "id": "pib-lal-krishnesh-kerala-2022",
+    "farmer_name": "Lal Krishnesh (2022 Incident)",
+    "location_state": "Kerala",
+    "publisher": "Press Information Bureau (PIB), Government of India",
+    "source_url": "https://pib.gov.in/",
+    "trust_label": "Government-published account",
+    "calamity_tags": [
+      "heavy_rain"
+    ],
+    "crop_tags": [],
+    "scheme_tag": "PMFBY",
+    "known_facts": {
+      "event": "Heavy-rain crop loss in 2022",
+      "scheme": "PMFBY",
+      "reported_outcome": "Reported receiving 9 times the premium invested"
+    },
+    "premium_paid_display": "Amount not stated in the PIB account",
+    "payout_received_display": "Reported settlement: 9 times the premium invested; rupee amount not stated",
+    "pib_release_note": "The PIB-published account reports a 9-times-premium settlement for a 2022 heavy-rain loss; it does not state the rupee payout or the crop affected in this incident.",
+    "video_reference_title": "Official DD Kisan / Ministry of Agriculture Claim Process & Farmer Stories",
+    "video_reference_url": "https://www.youtube.com/@DDKisan",
+    "unknown_facts": [
+      "Exact rupee payout amount",
+      "Specific crop damaged in the 2022 incident",
+      "Step-by-step submission timeline"
+    ],
+    "takeaway": "Documented public records show multi-fold claim settlements relative to farmer premium for heavy-rain losses."
+  },
+  {
+    "id": "pib-lal-krishnesh-kerala-2023",
+    "farmer_name": "Lal Krishnesh (2023 Incident)",
+    "location_state": "Kerala",
+    "publisher": "Press Information Bureau (PIB), Government of India",
+    "source_url": "https://pib.gov.in/",
+    "trust_label": "Government-published account",
+    "calamity_tags": [
+      "heavy_rain"
+    ],
+    "crop_tags": [
+      "banana",
+      "areca_nut"
+    ],
+    "scheme_tag": "PMFBY",
+    "known_facts": {
+      "event": "Crop damage in 2023",
+      "crops": "Banana and Areca nut",
+      "scheme": "PMFBY",
+      "reported_outcome": "Reported receiving 6.6 times the premium invested"
+    },
+    "premium_paid_display": "Amount not stated in the PIB account",
+    "payout_received_display": "Reported settlement: 6.6 times the premium invested; rupee amount not stated",
+    "pib_release_note": "The PIB-published 2023 account names banana and areca nut and reports a 6.6-times-premium settlement; it does not state the rupee payout or exact assessment details.",
+    "video_reference_title": "Official DD Kisan / Ministry of Agriculture Claim Process & Farmer Stories",
+    "video_reference_url": "https://www.youtube.com/@DDKisan",
+    "unknown_facts": [
+      "Exact rupee payout amount",
+      "Exact incident date and assessment details"
+    ],
+    "takeaway": "Separate seasonal enrollments under PMFBY protect recurring weather losses across different crop cycles."
+  }
+]
