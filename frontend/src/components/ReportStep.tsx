@@ -41,7 +41,7 @@ function evidenceUrl(caseId: string, filePath: string, fileName: string): string
 }
 
 function isImage(fileName: string): boolean {
-  return /\.(jpe?g|png|webp|gif)$/i.test(fileName)
+  return /\.(jpe?g|jfif|png|webp|gif)$/i.test(fileName)
 }
 
 export function ReportStep({
