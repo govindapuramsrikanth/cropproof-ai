@@ -5,6 +5,10 @@ import { useSpeech } from '../hooks/useSpeech'
 import { VisualTapSelector } from './AgrarianVisuals'
 import { labels, type Language } from '../i18n/labels'
 import { apiRequest, jsonRequest } from '../lib/api'
+import {
+  getMissingRequiredIntakeFields,
+  type RequiredIntakeField,
+} from '../lib/intakeValidation'
 import type { CalamityType, IncidentCase } from '../types'
 
 interface ExtractResponse extends IncidentCase {
@@ -28,10 +32,11 @@ interface VoiceIntakeProps {
   nextQuestionTe: string | null
   onExtracted: (result: ExtractResponse) => void
   onDraftFieldChange: (
-    field: 'crop' | 'calamity_type' | 'incident_date',
+    field: RequiredIntakeField,
     value: string,
   ) => void
   onContinue: () => void
+  validationRequested: boolean
 }
 
 const quickScenarios: Array<{
@@ -100,13 +105,26 @@ export function VoiceIntake({
   onExtracted,
   onDraftFieldChange,
   onContinue,
+  validationRequested,
 }: VoiceIntakeProps) {
   const copy = labels[language]
   const [isExtracting, setIsExtracting] = useState(false)
-  const [hasExtracted, setHasExtracted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasAttemptedContinue, setHasAttemptedContinue] = useState(false)
+  const [affectedAreaInput, setAffectedAreaInput] = useState(
+    caseData.affected_area_acres === null
+      ? ''
+      : String(caseData.affected_area_acres),
+  )
   const [now, setNow] = useState(quickIntakeStartedAt)
   const transcriptRef = useRef(transcript)
+  useEffect(() => {
+    setAffectedAreaInput(
+      caseData.affected_area_acres === null
+        ? ''
+        : String(caseData.affected_area_acres),
+    )
+  }, [caseData.affected_area_acres])
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
@@ -186,6 +204,7 @@ export function VoiceIntake({
     { label: copy.fields.incidentDate, value: caseData.incident_date },
     { label: copy.fields.district, value: caseData.district },
     { label: copy.fields.village, value: caseData.village },
+    { label: language === 'te' ? 'రాష్ట్రం' : 'State', value: caseData.state },
     {
       label: copy.fields.affectedArea,
       value:
@@ -205,7 +224,6 @@ export function VoiceIntake({
         `/api/cases/${caseData.id}/extract`,
         jsonRequest('POST', { transcript: description, language }),
       )
-      setHasExtracted(true)
       onExtracted(result)
     } catch (reason) {
       setError(
@@ -242,6 +260,51 @@ export function VoiceIntake({
     .map((part) => String(part).padStart(2, '0'))
     .join(':')
   const within72Hours = remainingMilliseconds > 0
+  const missingRequiredFields = getMissingRequiredIntakeFields(
+    caseData,
+    affectedAreaInput,
+  )
+  const showValidationErrors = hasAttemptedContinue || validationRequested
+  const validationMessages: Record<RequiredIntakeField, string> = {
+    crop: language === 'te' ? 'పంటను ఎంచుకోండి.' : 'Select a crop.',
+    calamity_type:
+      language === 'te' ? 'నష్టం రకాన్ని ఎంచుకోండి.' : 'Select the calamity type.',
+    incident_date:
+      language === 'te'
+        ? 'సంఘటన తేదీని నమోదు చేయండి.'
+        : 'Enter a valid incident date.',
+    village:
+      language === 'te' ? 'గ్రామం పేరును నమోదు చేయండి.' : 'Enter the village.',
+    district:
+      language === 'te' ? 'జిల్లా పేరును నమోదు చేయండి.' : 'Enter the district.',
+    state:
+      language === 'te' ? 'రాష్ట్రం పేరును నమోదు చేయండి.' : 'Enter the state.',
+    affected_area_acres:
+      language === 'te'
+        ? 'ప్రభావిత విస్తీర్ణం 0 కంటే ఎక్కువగా ఉండాలి.'
+        : 'Affected area must be greater than 0 acres.',
+  }
+  const hasMissingField = (field: RequiredIntakeField) =>
+    missingRequiredFields.includes(field)
+  const inputClass = (invalid: boolean) =>
+    `mt-1.5 min-h-11 w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none focus:ring-4 ${
+      showValidationErrors && invalid
+        ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100'
+        : 'border-slate-300 focus:border-emerald-600 focus:ring-emerald-100'
+    }`
+  const showFieldError = (field: RequiredIntakeField) =>
+    showValidationErrors &&
+    hasMissingField(field) && (
+      <p className="mt-1 text-xs font-semibold text-rose-700">
+        {validationMessages[field]}
+      </p>
+    )
+  const continueToConfirmation = () => {
+    setHasAttemptedContinue(true)
+    if (missingRequiredFields.length > 0) return
+    onDraftFieldChange('affected_area_acres', affectedAreaInput)
+    onContinue()
+  }
 
   return (
     <section className="space-y-6" aria-labelledby="voice-intake-title">
@@ -312,11 +375,17 @@ export function VoiceIntake({
             <input
               type="date"
               value={incidentDate}
+              aria-invalid={showValidationErrors && hasMissingField('incident_date')}
               onChange={(event) =>
                 onDraftFieldChange('incident_date', event.target.value)
               }
-              className="mt-1 block min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-900"
+              className={`mt-1 block min-h-10 rounded-lg border bg-white px-2 text-sm font-semibold text-slate-900 ${
+                showValidationErrors && hasMissingField('incident_date')
+                  ? 'border-rose-400'
+                  : 'border-slate-300'
+              }`}
             />
+            {showFieldError('incident_date')}
           </label>
         </div>
       </div>
@@ -467,18 +536,70 @@ export function VoiceIntake({
       </div>
 
       <div className="space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
-        <VisualTapSelector
-          kind="crop"
-          value={caseData.crop}
-          language={language}
-          onSelect={(value) => onDraftFieldChange('crop', value)}
-        />
-        <VisualTapSelector
-          kind="calamity"
-          value={caseData.calamity_type}
-          language={language}
-          onSelect={(value) => onDraftFieldChange('calamity_type', value)}
-        />
+        <div>
+          <VisualTapSelector
+            kind="crop"
+            value={caseData.crop}
+            language={language}
+            onSelect={(value) => onDraftFieldChange('crop', value)}
+          />
+          {showFieldError('crop')}
+        </div>
+        <div>
+          <VisualTapSelector
+            kind="calamity"
+            value={caseData.calamity_type}
+            language={language}
+            onSelect={(value) => onDraftFieldChange('calamity_type', value)}
+          />
+          {showFieldError('calamity_type')}
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="font-bold text-slate-900">
+            {language === 'te' ? 'పొలం వివరాలు' : 'Farm location and affected area'}
+          </h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                ['village', language === 'te' ? 'గ్రామం' : 'Village', caseData.village ?? ''],
+                ['district', language === 'te' ? 'జిల్లా' : 'District', caseData.district ?? ''],
+                ['state', language === 'te' ? 'రాష్ట్రం' : 'State', caseData.state ?? ''],
+              ] as const
+            ).map(([field, label, value]) => (
+              <label key={field} className="text-sm font-semibold text-slate-700">
+                {label}
+                <input
+                  type="text"
+                  value={value}
+                  aria-invalid={showValidationErrors && hasMissingField(field)}
+                  onChange={(event) => onDraftFieldChange(field, event.target.value)}
+                  className={inputClass(hasMissingField(field))}
+                  autoComplete="off"
+                />
+                {showFieldError(field)}
+              </label>
+            ))}
+            <label className="text-sm font-semibold text-slate-700">
+              {language === 'te' ? 'ప్రభావిత విస్తీర్ణం (ఎకరాలు)' : 'Affected area (acres)'}
+              <input
+                type="number"
+                min="0"
+                step="any"
+                inputMode="decimal"
+                value={affectedAreaInput}
+                aria-invalid={
+                  showValidationErrors && hasMissingField('affected_area_acres')
+                }
+                onChange={(event) => setAffectedAreaInput(event.target.value)}
+                onBlur={() =>
+                  onDraftFieldChange('affected_area_acres', affectedAreaInput)
+                }
+                className={inputClass(hasMissingField('affected_area_acres'))}
+              />
+              {showFieldError('affected_area_acres')}
+            </label>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:p-5">
@@ -517,6 +638,24 @@ export function VoiceIntake({
         </p>
       )}
 
+      {showValidationErrors && missingRequiredFields.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <p className="font-bold">
+            {language === 'te'
+              ? 'కొనసాగించడానికి తప్పనిసరి వివరాలను సరిచేయండి:'
+              : 'Complete the required details before continuing:'}
+          </p>
+          <ul className="mt-2 list-inside list-disc space-y-1">
+            {missingRequiredFields.map((field) => (
+              <li key={field}>{validationMessages[field]}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {capturedFields.length > 0 && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
           <h3 className="font-bold text-slate-900">
@@ -551,8 +690,8 @@ export function VoiceIntake({
         </button>
         <button
           type="button"
-          disabled={!hasExtracted && capturedFields.length === 0}
-          onClick={onContinue}
+          disabled={isExtracting}
+          onClick={continueToConfirmation}
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-700 px-5 py-3 font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
         >
           {language === 'te' ? 'నిర్ధారణకు కొనసాగండి' : 'Continue to Confirmation'}

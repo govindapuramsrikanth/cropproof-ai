@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, FileText, ImagePlus, Upload } from 'lucide-react'
 
 import {
@@ -261,7 +261,38 @@ function evidenceUrl(caseId: string, evidence: EvidenceFile): string {
 }
 
 function isImage(fileName: string): boolean {
-  return /\.(jpe?g|png|webp|gif)$/i.test(fileName)
+  return /\.(jpe?g|jpe|jfif|png|webp|gif)$/i.test(fileName)
+}
+
+function EvidencePreview({
+  src,
+  alt,
+  className,
+}: {
+  src: string
+  alt: string
+  className: string
+}) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <span
+        role="img"
+        aria-label={alt}
+        className={`${className} flex items-center justify-center rounded-lg bg-slate-100 text-slate-600`}
+      >
+        <FileText size={24} aria-hidden="true" />
+      </span>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 export function EvidenceCoach({
@@ -272,11 +303,48 @@ export function EvidenceCoach({
 }: EvidenceCoachProps) {
   const [files, setFiles] = useState<Record<string, File | null>>({})
   const [captions, setCaptions] = useState<Record<string, string>>({})
+  const [selectedPreviewUrls, setSelectedPreviewUrls] = useState<
+    Record<string, string>
+  >({})
   const [uploadingCategory, setUploadingCategory] = useState<string | null>(null)
   const [sampleLoadingCategory, setSampleLoadingCategory] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const previewUrlsRef = useRef(new Map<string, string>())
   const copy = labels[language]
   const evidence = caseData.evidence ?? []
+  useEffect(
+    () => () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+      previewUrlsRef.current.clear()
+    },
+    [],
+  )
+
+  const clearSelectedPreview = (category: string) => {
+    const previousUrl = previewUrlsRef.current.get(category)
+    if (previousUrl) {
+      URL.revokeObjectURL(previousUrl)
+      previewUrlsRef.current.delete(category)
+    }
+    setSelectedPreviewUrls((current) => {
+      const updated = { ...current }
+      delete updated[category]
+      return updated
+    })
+  }
+
+  const selectFile = (category: string, file: File | null) => {
+    clearSelectedPreview(category)
+    setFiles((current) => ({ ...current, [category]: file }))
+    if (file && isImage(file.name)) {
+      const previewUrl = URL.createObjectURL(file)
+      previewUrlsRef.current.set(category, previewUrl)
+      setSelectedPreviewUrls((current) => ({
+        ...current,
+        [category]: previewUrl,
+      }))
+    }
+  }
   const hasCropPhoto = evidence.some(
     (item) =>
       ['wide_field', 'closeup_crop', 'landmark'].includes(
@@ -324,6 +392,7 @@ export function EvidenceCoach({
       })
       setFiles((current) => ({ ...current, [category]: null }))
       setCaptions((current) => ({ ...current, [category]: '' }))
+      clearSelectedPreview(category)
       onUploaded()
     } catch (reason) {
       setError(
@@ -424,12 +493,12 @@ export function EvidenceCoach({
                   <input
                     id={fileId}
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.jpe,.jfif,.pdf"
                     onChange={(event) =>
-                      setFiles((current) => ({
-                        ...current,
-                        [guide.category]: event.target.files?.[0] ?? null,
-                      }))
+                      selectFile(
+                        guide.category,
+                        event.target.files?.[0] ?? null,
+                      )
                     }
                     className="mt-1.5 block min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:font-semibold file:text-emerald-800"
                   />
@@ -450,6 +519,7 @@ export function EvidenceCoach({
                         [guide.category]: event.target.value,
                       }))
                     }
+                    maxLength={80}
                     className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
                     placeholder={
                       language === 'te'
@@ -457,8 +527,60 @@ export function EvidenceCoach({
                         : 'What does this file show?'
                     }
                   />
+                  <p className="mt-1 text-right text-xs text-slate-500">
+                    {(captions[guide.category] ?? '').length}/80
+                  </p>
                 </div>
               </div>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(language === 'te'
+                  ? [
+                      'పొలంలో వరద నీరు',
+                      'దెబ్బతిన్న పంట ఆకులు',
+                      'పొలం గట్టు, నీటి మట్టం',
+                    ]
+                  : [
+                      'Floodwater across field',
+                      'Damaged crop leaves',
+                      'Field bund and water level',
+                    ]
+                ).map((caption) => (
+                  <button
+                    key={caption}
+                    type="button"
+                    onClick={() =>
+                      setCaptions((current) => ({
+                        ...current,
+                        [guide.category]: caption,
+                      }))
+                    }
+                    className="min-h-8 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                  >
+                    {caption}
+                  </button>
+                ))}
+              </div>
+
+              {files[guide.category] && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                  {isImage(files[guide.category]?.name ?? '') &&
+                  selectedPreviewUrls[guide.category] ? (
+                    <EvidencePreview
+                      src={selectedPreviewUrls[guide.category]}
+                      alt={files[guide.category]?.name ?? 'Selected evidence image'}
+                      className="size-16 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span className="flex size-16 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                      <FileText size={24} aria-hidden="true" />
+                    </span>
+                  )}
+                  <span className="min-w-0 truncate text-sm font-semibold text-slate-700">
+                    {files[guide.category]?.name}
+                  </span>
+                </div>
+              )}
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="truncate text-sm text-slate-500">
@@ -526,7 +648,7 @@ export function EvidenceCoach({
                         className="group flex max-w-full items-center gap-3 rounded-xl border border-slate-200 p-2 transition hover:border-emerald-400 hover:bg-emerald-50"
                       >
                         {isImage(item.file_name) ? (
-                          <img
+                          <EvidencePreview
                             src={evidenceUrl(caseData.id, item)}
                             alt={item.farmer_caption || item.file_name}
                             className="size-16 rounded-lg object-cover"

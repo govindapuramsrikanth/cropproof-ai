@@ -516,12 +516,15 @@ def test_case_extraction_confirmation_guidance_upload_and_pdf(client, monkeypatc
     upload = client.post(
         f"/api/cases/{case_id}/evidence",
         files={"file": ("crop.png", png.getvalue(), "image/png")},
-        data={"category": "crop_photo", "user_caption": "Flooded paddy field"},
+        data={
+            "category": "crop_photo",
+            "user_caption": "Flooded paddy field — పొలంలో నీరు",
+        },
     )
     assert upload.status_code == 200
     evidence = upload.json()
     assert evidence["file_name"] == "crop.png"
-    assert evidence["farmer_caption"] == "Flooded paddy field"
+    assert evidence["farmer_caption"] == "Flooded paddy field — పొలంలో నీరు"
     assert Path(evidence["file_path"]).is_file()
 
     case_with_evidence = client.get(f"/api/cases/{case_id}")
@@ -556,6 +559,8 @@ def test_case_extraction_confirmation_guidance_upload_and_pdf(client, monkeypatc
     assert "17.0575, 79.2684" in pdf_text
     assert "74.2 mm" in pdf_text
     assert "Open-Meteo Meteorological Feed & Device Geolocation" in pdf_text
+    assert "Flooded paddy field" in pdf_text
+    assert "[unsupported characters omitted]" in pdf_text
 
     deleted = client.delete(
         f"/api/cases/{case_id}/evidence/{evidence['id']}"

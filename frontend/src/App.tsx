@@ -13,6 +13,10 @@ import { StoryTrustCenter } from './components/StoryTrustCenter'
 import { VoiceIntake } from './components/VoiceIntake'
 import { labels, type Language } from './i18n/labels'
 import { apiRequest, jsonRequest } from './lib/api'
+import {
+  getMissingRequiredIntakeFields,
+  type RequiredIntakeField,
+} from './lib/intakeValidation'
 import type {
   FarmerStory,
   GuidanceResponse,
@@ -25,12 +29,22 @@ interface ExtractResponse extends IncidentCase {
   next_question_te: string | null
 }
 
+const telanganaDistricts = new Set([
+  'hyderabad',
+  'karimnagar',
+  'khammam',
+  'nalgonda',
+  'nizamabad',
+  'warangal',
+])
+
 function App() {
   const [language, setLanguage] = useState<Language>('te')
   const [caseData, setCaseData] = useState<IncidentCase | null>(null)
   const [stories, setStories] = useState<FarmerStory[]>([])
   const [guidance, setGuidance] = useState<GuidanceResponse | null>(null)
   const [activeStep, setActiveStep] = useState(1)
+  const [step1ValidationRequested, setStep1ValidationRequested] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [nextQuestionEn, setNextQuestionEn] = useState<string | null>(null)
   const [nextQuestionTe, setNextQuestionTe] = useState<string | null>(null)
@@ -75,6 +89,7 @@ function App() {
         setTranscript('')
         setNextQuestionEn(null)
         setNextQuestionTe(null)
+        setStep1ValidationRequested(false)
         setActiveStep(demo ? 3 : 1)
         if (demo) {
           setDemoCaseNotice(
@@ -112,10 +127,19 @@ function App() {
 
   const goToStep = useCallback(
     (step: number) => {
+      if (
+        activeStep === 1 &&
+        step > 1 &&
+        caseData &&
+        getMissingRequiredIntakeFields(caseData).length > 0
+      ) {
+        setStep1ValidationRequested(true)
+        return
+      }
       setActiveStep(step)
       if (step >= 3 && caseData) void loadGuidance(caseData.id)
     },
-    [caseData, loadGuidance],
+    [activeStep, caseData, loadGuidance],
   )
 
   const handleExtracted = (result: ExtractResponse) => {
@@ -132,6 +156,14 @@ function App() {
             ...updatedCase,
             crop: updatedCase.crop ?? current.crop,
             calamity_type: updatedCase.calamity_type ?? current.calamity_type,
+            state:
+              updatedCase.state ??
+              current.state ??
+              (telanganaDistricts.has(
+                (updatedCase.district ?? current.district ?? '').toLowerCase(),
+              )
+                ? 'Telangana'
+                : null),
             evidence: current.evidence ?? [],
           }
         : updatedCase,
@@ -172,14 +204,32 @@ function App() {
   }
 
   const handleDraftFieldChange = (
-    field: 'crop' | 'calamity_type' | 'incident_date',
+    field: RequiredIntakeField,
     value: string,
   ) => {
-    setCaseData((current) =>
-      current
-        ? { ...current, [field]: field === 'incident_date' && !value ? null : value }
-        : current,
-    )
+    setCaseData((current) => {
+      if (!current) return current
+      if (field === 'affected_area_acres') {
+        const area = value.trim() ? Number(value) : Number.NaN
+        return {
+          ...current,
+          affected_area_acres: Number.isFinite(area) ? area : null,
+        }
+      }
+
+      const updatedValue =
+        field === 'incident_date' && !value ? null : value
+      const next = { ...current, [field]: updatedValue }
+      if (
+        field === 'district' &&
+        value.trim() &&
+        !current.state &&
+        telanganaDistricts.has(value.trim().toLowerCase())
+      ) {
+        next.state = 'Telangana'
+      }
+      return next
+    })
   }
 
   const handleHeroStartIntake = () => {
@@ -321,7 +371,11 @@ function App() {
                 nextQuestionTe={nextQuestionTe}
                 onExtracted={handleExtracted}
                 onDraftFieldChange={handleDraftFieldChange}
-                onContinue={() => goToStep(2)}
+                validationRequested={step1ValidationRequested}
+                onContinue={() => {
+                  setStep1ValidationRequested(false)
+                  setActiveStep(2)
+                }}
               />
             )}
             {activeStep === 2 && (

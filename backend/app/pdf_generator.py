@@ -1,6 +1,7 @@
 import hashlib
 import json
 import math
+import unicodedata
 from pathlib import Path
 from datetime import date, datetime, timedelta, timezone
 from xml.sax.saxutils import escape
@@ -142,6 +143,26 @@ def _display(value, default: str = _UNKNOWN) -> str:
     if isinstance(value, (list, tuple, set)):
         return ", ".join(str(item) for item in value) if value else default
     return str(value)
+
+
+def _pdf_caption(value) -> str:
+    caption = " ".join(_display(value, "").split())
+    if not caption:
+        return _UNKNOWN
+
+    safe_characters = []
+    unsupported_sequence = False
+    for character in unicodedata.normalize("NFC", caption):
+        try:
+            character.encode("cp1252")
+        except UnicodeEncodeError:
+            if not unsupported_sequence:
+                safe_characters.append("[unsupported characters omitted]")
+            unsupported_sequence = True
+        else:
+            safe_characters.append(character)
+            unsupported_sequence = False
+    return "".join(safe_characters)
 
 
 def _paragraph(value, style: ParagraphStyle) -> Paragraph:
@@ -522,7 +543,9 @@ def generate_evidence_pdf(
                         styles["SmallCell"],
                     ),
                     _paragraph(
-                        item.get("farmer_caption") or item.get("caption"),
+                        _pdf_caption(
+                            item.get("farmer_caption") or item.get("caption")
+                        ),
                         styles["SmallCell"],
                     ),
                     _evidence_image(item, styles),
