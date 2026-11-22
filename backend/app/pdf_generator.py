@@ -361,4 +361,4 @@ def generate_evidence_pdf(
         ("Unique Dossier ID", dossier_metadata["dossier_id"]),
         ("Generation Timestamp", dossier_metadata["generated_at"]),
         ("72-Hour Reporting Status", status_text),
-        ("SHA-256 Integrity Hash", dossier_metadata["sha256_hash"]),
+        ("SHA-256 Integrity Hash", dossier_metadata["sha256_hash"]),]
