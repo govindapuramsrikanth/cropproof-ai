@@ -1,7 +1,8 @@
 import hashlib
-import io
 import json
 import math
+import os
+import tempfile
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -192,7 +193,7 @@ def _is_empty(value) -> bool:
     return value is None or (isinstance(value, str) and not value.strip())
 
 
-def _evidence_image(item: dict, styles: dict):
+def _evidence_image(item: dict, styles: dict, temp_files: list[Path]):
     file_path = item.get("file_path") or item.get("path")
     if not file_path:
         return _paragraph("No preview", styles["SmallCell"])
@@ -206,11 +207,13 @@ def _evidence_image(item: dict, styles: dict):
             if image_width <= 0 or image_height <= 0:
                 return _paragraph("Preview unavailable", styles["SmallCell"])
             scale = min(2.05 * inch / image_width, 1.25 * inch / image_height)
-            buf = io.BytesIO()
-            pil_img.save(buf, format="JPEG", quality=85)
-            buf.seek(0)
+            fd, tmp_name = tempfile.mkstemp(suffix=".jpg")
+            os.close(fd)
+            tmp_path = Path(tmp_name)
+            temp_files.append(tmp_path)
+            pil_img.save(tmp_path, format="JPEG", quality=85)
             return Image(
-                buf,
+                str(tmp_path),
                 width=image_width * scale,
                 height=image_height * scale,
             )
@@ -255,7 +258,9 @@ def _draw_disclaimer(canvas, document) -> None:
         textColor=colors.HexColor("#425466"),
     )
     paragraph = Paragraph(escape(_DISCLAIMER), style)
-    paragraph.wrapOn(canvas, letter[0] - document.leftMargin - document.rightMargin, 0.3 * inch)
+    paragraph.wrapOn(
+        canvas, letter[0] - document.leftMargin - document.rightMargin, 0.3 * inch
+    )
     paragraph.drawOn(canvas, document.leftMargin, 0.21 * inch)
     canvas.restoreState()
 
@@ -270,95 +275,322 @@ def generate_evidence_pdf(
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     dossier_metadata = dossier_metadata or create_dossier_integrity(case)
+    temp_files: list[Path] = []
 
-    styles = getSampleStyleSheet()
-    styles.add(
-        ParagraphStyle(
-            "WarningBanner",
-            parent=styles["Normal"],
-            fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=12,
-            alignment=TA_CENTER,
-            textColor=colors.white,
+    try:
+        styles = getSampleStyleSheet()
+        styles.add(
+            ParagraphStyle(
+                "WarningBanner",
+                parent=styles["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=9,
+                leading=12,
+                alignment=TA_CENTER,
+                textColor=colors.white,
+            )
         )
-    )
-    styles.add(
-        ParagraphStyle(
-            "SectionHeading",
-            parent=styles["Heading2"],
-            fontName="Helvetica-Bold",
-            fontSize=11,
-            leading=14,
-            textColor=colors.HexColor("#183B56"),
-            spaceBefore=8,
-            spaceAfter=5,
+        styles.add(
+            ParagraphStyle(
+                "SectionHeading",
+                parent=styles["Heading2"],
+                fontName="Helvetica-Bold",
+                fontSize=11,
+                leading=14,
+                textColor=colors.HexColor("#183B56"),
+                spaceBefore=8,
+                spaceAfter=5,
+            )
         )
-    )
-    styles.add(
-        ParagraphStyle(
-            "BodySmall",
-            parent=styles["BodyText"],
-            fontSize=8,
-            leading=10,
+        styles.add(
+            ParagraphStyle(
+                "BodySmall",
+                parent=styles["BodyText"],
+                fontSize=8,
+                leading=10,
+            )
         )
-    )
-    styles.add(
-        ParagraphStyle(
-            "SmallCell",
-            parent=styles["BodyText"],
-            fontSize=7,
-            leading=9,
+        styles.add(
+            ParagraphStyle(
+                "SmallCell",
+                parent=styles["BodyText"],
+                fontSize=7,
+                leading=9,
+            )
         )
-    )
-    styles.add(
-        ParagraphStyle(
-            "TableHeader",
-            parent=styles["BodyText"],
-            fontName="Helvetica-Bold",
-            fontSize=7,
-            leading=9,
-            textColor=colors.white,
+        styles.add(
+            ParagraphStyle(
+                "TableHeader",
+                parent=styles["BodyText"],
+                fontName="Helvetica-Bold",
+                fontSize=7,
+                leading=9,
+                textColor=colors.white,
+            )
         )
-    )
 
-    document = SimpleDocTemplate(
-        str(output),
-        pagesize=letter,
-        rightMargin=0.55 * inch,
-        leftMargin=0.55 * inch,
-        topMargin=0.5 * inch,
-        bottomMargin=0.68 * inch,
-        title="CropProof AI Evidence and Claim Readiness Dossier",
-        author="CropProof AI",
-    )
-    story = []
+        document = SimpleDocTemplate(
+            str(output),
+            pagesize=letter,
+            rightMargin=0.55 * inch,
+            leftMargin=0.55 * inch,
+            topMargin=0.5 * inch,
+            bottomMargin=0.68 * inch,
+            title="CropProof AI Evidence and Claim Readiness Dossier",
+            author="CropProof AI",
+        )
+        story = []
 
-    banner = Table(
-        [[Paragraph(escape(_WARNING), styles["WarningBanner"])]],
-        colWidths=[7.4 * inch],
-    )
-    banner.setStyle(
-        TableStyle(
+        banner = Table(
+            [[Paragraph(escape(_WARNING), styles["WarningBanner"])]],
+            colWidths=[7.4 * inch],
+        )
+        banner.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#9B1C1C")),
+                    ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#7F1D1D")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 9),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        story.extend([banner, Spacer(1, 8)])
+
+        status_text = {
+            "within_72h_window": "Within 72-hour reporting window (date-based estimate)",
+            "past_72h_window": "Past 72-hour window — document and request review",
+            "unknown": "Unknown — incident date not available",
+        }.get(dossier_metadata["reporting_status"], "Unknown")
+        integrity_rows = [
+            ("Unique Dossier ID", dossier_metadata["dossier_id"]),
+            ("Generation Timestamp", dossier_metadata["generated_at"]),
+            ("72-Hour Reporting Status", status_text),
+            ("SHA-256 Integrity Hash", dossier_metadata["sha256_hash"]),
+        ]
+        integrity_table = Table(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#9B1C1C")),
-                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#7F1D1D")),
-                ("LEFTPADDING", (0, 0), (-1, -1), 9),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 9),
-                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ]
+                [
+                    Paragraph(f"<b>{escape(k)}</b>", styles["SmallCell"]),
+                    Paragraph(escape(str(v)), styles["SmallCell"]),
+                ]
+                for k, v in integrity_rows
+            ],
+            colWidths=[1.8 * inch, 5.6 * inch],
         )
-    )
-    story.extend([banner, Spacer(1, 8)])
+        integrity_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FFFBEB")),
+                    ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#D97706")),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#FDE68A")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+        story.extend([integrity_table, Spacer(1, 8)])
 
-    status_text = {
-        "within_72h_window": "Within 72-hour reporting window (date-based estimate)",
-        "past_72h_window": "Past 72-hour window — document and request review",
-        "unknown": "Unknown — incident date not available",
-    }.get(dossier_metadata["reporting_status"], "Unknown")
-    integrity_rows = [
-        ("Unique Dossier ID", dossier_metadata["dossier_id"]),
-        ("Generation Timestamp", dossier_metadata["generated_at"]),
-        ("72-Hour Reporting Status", status_text),
-        ("SHA-256 Integrity Hash", dossier_metadata["sha256_hash"]),]
+        # Section 1: Case & Incident Summary
+        story.append(
+            Paragraph("1. Case & Incident Summary", styles["SectionHeading"])
+        )
+        rainfall_val = case.get("rainfall_mm_72h")
+        rainfall_text = (
+            f"{float(rainfall_val):.1f} mm ({_rainfall_source_label(_rainfall_source(case))})"
+            if isinstance(rainfall_val, (int, float)) and math.isfinite(float(rainfall_val))
+            else _UNKNOWN
+        )
+        gps_lat = case.get("gps_lat")
+        gps_lon = case.get("gps_lon")
+        gps_text = (
+            f"{float(gps_lat):.5f}, {float(gps_lon):.5f}"
+            if isinstance(gps_lat, (int, float)) and isinstance(gps_lon, (int, float))
+            else _UNKNOWN
+        )
+        summary_rows = [
+            ("Case ID", case.get("id")),
+            ("Farmer Name / Alias", case.get("farmer_alias") or case.get("farmer_name")),
+            ("Location", _case_location(case)),
+            ("Crop", case.get("crop")),
+            ("Crop Stage", case.get("crop_stage")),
+            ("Calamity Type", str(case.get("calamity_type") or "").replace("_", " ") or _UNKNOWN),
+            ("Incident Date", case.get("incident_date")),
+            (
+                "Affected Area",
+                f"{case['affected_area_acres']} acres"
+                if case.get("affected_area_acres") is not None
+                else _UNKNOWN,
+            ),
+            ("Insurance Status", str(case.get("insurance_status") or "").replace("_", " ") or _UNKNOWN),
+            ("Confirmation Status", case.get("confirmation_status") or "Unconfirmed draft"),
+            ("GPS Coordinates", gps_text),
+            ("72-Hour Rainfall", rainfall_text),
+            ("Weather Summary", case.get("weather_summary")),
+        ]
+        summary_table = Table(
+            [
+                [
+                    Paragraph(f"<b>{escape(label)}</b>", styles["SmallCell"]),
+                    _paragraph(value, styles["SmallCell"]),
+                ]
+                for label, value in summary_rows
+            ],
+            colWidths=[2.0 * inch, 5.4 * inch],
+        )
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F1F5F9")),
+                    ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#CBD5E1")),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E2E8F0")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+        story.extend([summary_table, Spacer(1, 8)])
+
+        # Section 2: Readiness Checklist & Missing Items
+        story.append(
+            Paragraph("2. Readiness Checklist & Missing Items", styles["SectionHeading"])
+        )
+        missing_fields = _list_items(
+            (guidance.get("missing_info") or {}).get("fields")
+            or guidance.get("missing_fields")
+        )
+        missing_evidence = _list_items(
+            (guidance.get("missing_info") or {}).get("evidence")
+            or guidance.get("missing_evidence")
+        )
+        checklist_rows = [
+            (
+                "Missing / Unconfirmed Fields",
+                ", ".join(str(x) for x in missing_fields)
+                if missing_fields
+                else "All required incident details recorded.",
+            ),
+            (
+                "Recommended Additional Evidence",
+                ", ".join(str(x) for x in missing_evidence)
+                if missing_evidence
+                else "Suggested evidence items uploaded.",
+            ),
+        ]
+        checklist_table = Table(
+            [
+                [
+                    Paragraph(f"<b>{escape(k)}</b>", styles["SmallCell"]),
+                    _paragraph(v, styles["SmallCell"]),
+                ]
+                for k, v in checklist_rows
+            ],
+            colWidths=[2.2 * inch, 5.2 * inch],
+        )
+        checklist_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ECFDF5")),
+                    ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#6EE7B7")),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#A7F3D0")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+        story.extend([checklist_table, Spacer(1, 8)])
+
+        # Section 3: Uploaded Evidence Inventory
+        story.append(
+            Paragraph("3. Uploaded Evidence Inventory", styles["SectionHeading"])
+        )
+        if evidence_list:
+            ev_rows = [
+                [
+                    Paragraph("Category", styles["TableHeader"]),
+                    Paragraph("File & Caption", styles["TableHeader"]),
+                    Paragraph("Uploaded At", styles["TableHeader"]),
+                    Paragraph("Preview", styles["TableHeader"]),
+                ]
+            ]
+            for item in evidence_list:
+                file_label = _display(item.get("file_name"))
+                caption = _pdf_caption(item.get("farmer_caption"))
+                details_html = (
+                    f"<b>{escape(file_label)}</b><br/>"
+                    f"Caption: {escape(caption)}"
+                )
+                ev_rows.append(
+                    [
+                        _paragraph(
+                            str(item.get("category") or "").replace("_", " "),
+                            styles["SmallCell"],
+                        ),
+                        Paragraph(details_html, styles["SmallCell"]),
+                        _paragraph(item.get("uploaded_at"), styles["SmallCell"]),
+                        _evidence_image(item, styles, temp_files),
+                    ]
+                )
+            ev_table = Table(
+                ev_rows,
+                colWidths=[1.2 * inch, 2.5 * inch, 1.4 * inch, 2.3 * inch],
+                repeatRows=1,
+            )
+            ev_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#14532D")),
+                        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#CBD5E1")),
+                        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E2E8F0")),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]
+                )
+            )
+            story.extend([ev_table, Spacer(1, 8)])
+        else:
+            story.append(
+                Paragraph("No evidence files uploaded yet.", styles["BodySmall"])
+            )
+            story.append(Spacer(1, 8))
+
+        # Section 4: Applicable Policy & Reporting Guidance
+        story.append(
+            Paragraph(
+                "4. Applicable Policy & Reporting Guidance",
+                styles["SectionHeading"],
+            )
+        )
+        policies = _policy_entries(guidance, case)
+        if policies:
+            for entry in policies:
+                story.append(_policy_paragraph(entry, styles["BodySmall"]))
+                story.append(Spacer(1, 5))
+        else:
+            story.append(
+                Paragraph(
+                    "Report crop loss within 72 hours via the PMFBY Crop Insurance App, helpline 14447, bank branch, CSC, or local Agriculture Officer.",
+                    styles["BodySmall"],
+                )
+            )
+
+        document.build(
+            story,
+            onFirstPage=_draw_disclaimer,
+            onLaterPages=_draw_disclaimer,
+        )
+        return str(output)
+    finally:
+        for tmp_path in temp_files:
+            tmp_path.unlink(missing_ok=True)
